@@ -23,32 +23,36 @@ tailwind.config = {
 <style>
   * { font-family: 'Pretendard', sans-serif; }
   body { background: #f1f5f9; }
-  .sidebar-link { @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all duration-200; }
-  .sidebar-link:hover { @apply bg-navy-700; }
-  .sidebar-link.active { @apply bg-gold-500 text-navy-900 font-semibold; }
-  .kpi-card { @apply bg-white rounded-xl p-5 shadow-sm border border-slate-100; }
-  .data-table { @apply w-full text-sm; }
-  .data-table th { @apply text-left px-4 py-3 text-slate-500 font-medium border-b border-slate-100 bg-slate-50/50; }
-  .data-table td { @apply px-4 py-3 border-b border-slate-50; }
-  .data-table tr:hover td { @apply bg-slate-50; }
-  .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
-  .btn { @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer; }
-  .btn-primary { @apply bg-gold-500 text-white hover:bg-gold-600; }
-  .btn-secondary { @apply bg-white border border-slate-200 text-slate-700 hover:bg-slate-50; }
-  .btn-outline { @apply border border-gold-500 text-gold-600 hover:bg-gold-50; }
-  .modal-overlay { @apply fixed inset-0 bg-black/50 z-50 flex items-center justify-center; }
-  .modal-content { @apply bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto; }
-  .tab-btn { @apply px-4 py-2 text-sm font-medium rounded-lg transition-all; }
-  .tab-btn.active { @apply bg-gold-500 text-white; }
-  .tab-btn:not(.active) { @apply text-slate-500 hover:text-slate-700 hover:bg-slate-100; }
-  .toast { @apply fixed bottom-6 right-6 bg-navy-800 text-white px-5 py-3 rounded-xl shadow-lg z-[100] flex items-center gap-3 animate-slide-up; }
+  .sidebar-link { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; transition: all 0.2s; }
+  .sidebar-link:hover { background: #1f2b41; }
+  .sidebar-link.active { background: #C8A24B; color: #151e30; font-weight: 600; }
+  .kpi-card { background: white; border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 1px 2px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; }
+  .data-table { width: 100%; font-size: 0.875rem; border-collapse: collapse; }
+  .data-table th { text-align: left; padding: 0.75rem 1rem; color: #64748b; font-weight: 500; border-bottom: 1px solid #f1f5f9; background: rgba(248,250,252,0.5); }
+  .data-table td { padding: 0.75rem 1rem; border-bottom: 1px solid #f8fafc; }
+  .data-table tr:hover td { background: #f8fafc; }
+  .badge { display: inline-flex; align-items: center; padding: 0.125rem 0.625rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+  .btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem; font-weight: 500; transition: all 0.2s; cursor: pointer; border: none; }
+  .btn-primary { background: #C8A24B; color: white; }
+  .btn-primary:hover { background: #a17e2e; }
+  .btn-secondary { background: white; border: 1px solid #e2e8f0; color: #334155; }
+  .btn-secondary:hover { background: #f8fafc; }
+  .btn-outline { border: 1px solid #C8A24B; color: #a17e2e; background: transparent; }
+  .btn-outline:hover { background: #fdf8e8; }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 50; display: flex; align-items: center; justify-content: center; }
+  .modal-content { background: white; border-radius: 1rem; box-shadow: 0 20px 60px rgba(0,0,0,0.2); max-width: 42rem; width: 100%; margin: 0 1rem; max-height: 90vh; overflow-y: auto; }
+  .tab-btn { padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500; border-radius: 0.5rem; transition: all 0.2s; cursor: pointer; border: none; background: transparent; }
+  .tab-btn.active { background: #C8A24B; color: white; }
+  .tab-btn:not(.active) { color: #64748b; }
+  .tab-btn:not(.active):hover { color: #334155; background: #f1f5f9; }
+  .toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #151e30; color: white; padding: 0.75rem 1.25rem; border-radius: 0.75rem; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 100; display: flex; align-items: center; gap: 0.75rem; animation: slide-up 0.3s ease-out; }
   @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-  .animate-slide-up { animation: slide-up 0.3s ease-out; }
-  .submenu { @apply ml-4 mt-1 space-y-0.5; }
+  .submenu { margin-left: 1rem; margin-top: 0.25rem; }
   .page { display: none; }
   .page.active { display: block; }
-  .invoice-doc { @apply bg-white border border-slate-200 rounded-xl p-8 max-w-4xl; }
-  input, select, textarea { @apply border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/30 focus:border-gold-500 transition-all; }
+  .invoice-doc { background: white; border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 2rem; max-width: 56rem; }
+  input, select, textarea { border: 1px solid #e2e8f0; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; outline: none; transition: all 0.2s; }
+  input:focus, select:focus, textarea:focus { box-shadow: 0 0 0 3px rgba(200,162,75,0.2); border-color: #C8A24B; }
 </style>
 </head>
 <body class="min-h-screen">
