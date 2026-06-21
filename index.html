@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoldERP - 인보이스 발행 & 매출관리 시스템</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: { sans: ['Pretendard', 'sans-serif'] },
+      colors: {
+        gold: { 50:'#fdf8e8', 100:'#f9ecc5', 200:'#f3d88b', 300:'#edc451', 400:'#d4a937', 500:'#C8A24B', 600:'#a17e2e', 700:'#7a5f22', 800:'#534017', 900:'#2c210b' },
+        navy: { 50:'#f0f2f8', 100:'#d9dde9', 200:'#b3bbcd', 300:'#8d99b1', 400:'#677795', 500:'#3d4f6f', 600:'#2e3d58', 700:'#1f2b41', 800:'#151e30', 900:'#0c1220' },
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { font-family: 'Pretendard', sans-serif; }
+  body { background: #f1f5f9; }
+  .sidebar-link { @apply flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm transition-all duration-200; }
+  .sidebar-link:hover { @apply bg-navy-700; }
+  .sidebar-link.active { @apply bg-gold-500 text-navy-900 font-semibold; }
+  .kpi-card { @apply bg-white rounded-xl p-5 shadow-sm border border-slate-100; }
+  .data-table { @apply w-full text-sm; }
+  .data-table th { @apply text-left px-4 py-3 text-slate-500 font-medium border-b border-slate-100 bg-slate-50/50; }
+  .data-table td { @apply px-4 py-3 border-b border-slate-50; }
+  .data-table tr:hover td { @apply bg-slate-50; }
+  .badge { @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium; }
+  .btn { @apply inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer; }
+  .btn-primary { @apply bg-gold-500 text-white hover:bg-gold-600; }
+  .btn-secondary { @apply bg-white border border-slate-200 text-slate-700 hover:bg-slate-50; }
+  .btn-outline { @apply border border-gold-500 text-gold-600 hover:bg-gold-50; }
+  .modal-overlay { @apply fixed inset-0 bg-black/50 z-50 flex items-center justify-center; }
+  .modal-content { @apply bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto; }
+  .tab-btn { @apply px-4 py-2 text-sm font-medium rounded-lg transition-all; }
+  .tab-btn.active { @apply bg-gold-500 text-white; }
+  .tab-btn:not(.active) { @apply text-slate-500 hover:text-slate-700 hover:bg-slate-100; }
+  .toast { @apply fixed bottom-6 right-6 bg-navy-800 text-white px-5 py-3 rounded-xl shadow-lg z-[100] flex items-center gap-3 animate-slide-up; }
+  @keyframes slide-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .animate-slide-up { animation: slide-up 0.3s ease-out; }
+  .submenu { @apply ml-4 mt-1 space-y-0.5; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .invoice-doc { @apply bg-white border border-slate-200 rounded-xl p-8 max-w-4xl; }
+  input, select, textarea { @apply border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gold-500/30 focus:border-gold-500 transition-all; }
+</style>
+</head>
+<body class="min-h-screen">
+<!-- Toast Container -->
+<div id="toast-container"></div>
+
+<!-- Layout -->
+<div class="flex min-h-screen">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="w-64 bg-navy-800 text-white flex flex-col fixed h-full z-40 transition-transform duration-300">
+    <div class="p-5 border-b border-navy-700">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 bg-gold-500 rounded-lg flex items-center justify-center font-bold text-navy-900">G</div>
+        <div>
+          <div class="font-bold text-sm">(주)성진골드</div>
+          <div class="text-[10px] text-slate-400">Invoice & Sales Management</div>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-1 p-3 space-y-1 overflow-y-auto text-slate-300">
+      <a href="#dashboard" class="sidebar-link active" data-page="dashboard">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/></svg>
+        대시보드
+      </a>
+      <div class="pt-2 pb-1 px-4 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">업무 프로세스</div>
+      <a href="#orders" class="sidebar-link" data-page="orders">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        1. 주문 접수
+      </a>
+      <a href="#pi" class="sidebar-link" data-page="pi">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        2. 견적서(PI) 발행
+      </a>
+      <a href="#quote-update" class="sidebar-link" data-page="quote-update">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        3. 견적 업데이트
+      </a>
+      <a href="#production" class="sidebar-link" data-page="production">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+        생산발주서
+      </a>
+      <a href="#ci" class="sidebar-link" data-page="ci">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        4. 최종 인보이스(CI)
+      </a>
+      <div class="pt-3 pb-1 px-4 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">재무 관리</div>
+      <a href="#sales" class="sidebar-link" data-page="sales">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+        5. 매출 관리
+      </a>
+      <a href="#collections" class="sidebar-link" data-page="collections">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+        6. 수금 관리
+      </a>
+      <a href="#bank" class="sidebar-link" data-page="bank">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+        은행 입금내역
+      </a>
+      <div class="pt-3 pb-1 px-4 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">마스터 데이터</div>
+      <a href="#master-products" class="sidebar-link" data-page="master-products">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+        제품 Spec 관리
+      </a>
+      <a href="#master-spot" class="sidebar-link" data-page="master-spot">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+        금시세 관리
+      </a>
+      <a href="#master-customers" class="sidebar-link" data-page="master-customers">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        고객 기준정보
+      </a>
+      <a href="#master-labor" class="sidebar-link" data-page="master-labor">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        고객공임 관리
+      </a>
+    </nav>
+    <div class="p-4 border-t border-navy-700 text-xs text-slate-400">
+      <div>Demo v1.0</div>
+      <div class="text-[10px] mt-0.5">All data is mock — for demonstration only</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="flex-1 ml-64">
+    <!-- Top Bar -->
+    <header class="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between sticky top-0 z-30">
+      <button id="menu-toggle" class="lg:hidden p-2 rounded-lg hover:bg-slate-100">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div id="page-title" class="text-lg font-bold text-navy-800">대시보드</div>
+      <div class="flex items-center gap-3">
+        <span class="text-xs text-slate-400">2025-06-20</span>
+        <div class="w-8 h-8 bg-gold-100 rounded-full flex items-center justify-center text-gold-700 text-xs font-bold">관리</div>
+      </div>
+    </header>
+
+    <div class="p-6">
+      <!-- ========== DASHBOARD ========== -->
+      <div id="page-dashboard" class="page active">
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div class="kpi-card">
+            <div class="text-xs text-slate-400 mb-1">당월 매출</div>
+            <div class="text-2xl font-bold text-navy-800">₩184,520,000</div>
+            <div class="text-xs text-emerald-500 mt-1">▲ 12.3% 전월 대비</div>
+          </div>
+          <div class="kpi-card">
+            <div class="text-xs text-slate-400 mb-1">미수금 총액</div>
+            <div class="text-2xl font-bold text-red-500">₩83,675,000</div>
+            <div class="text-xs text-slate-400 mt-1">3개 거래처</div>
+          </div>
+          <div class="kpi-card">
+            <div class="text-xs text-slate-400 mb-1">진행중 주문</div>
+            <div class="text-2xl font-bold text-navy-800">4건</div>
+            <div class="text-xs text-slate-400 mt-1">PI발행 1 · 생산중 1 · CI발행 1 · 접수 1</div>
+          </div>
+          <div class="kpi-card">
+            <div class="text-xs text-slate-400 mb-1">오늘 금시세 (24K)</div>
+            <div class="text-2xl font-bold text-gold-600">₩153,200<span class="text-sm">/g</span></div>
+            <div class="text-xs text-emerald-500 mt-1">▲ 1,400 (전일 대비)</div>
+          </div>
+        </div>
+        <!-- Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100 lg:col-span-2">
+            <div class="text-sm font-semibold text-navy-800 mb-4">매출 추이 (최근 6개월)</div>
+            <canvas id="chart-revenue" height="120"></canvas>
+          </div>
+          <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+            <div class="text-sm font-semibold text-navy-800 mb-4">수출구분별 매출</div>
+            <canvas id="chart-export" height="180"></canvas>
+          </div>
+        </div>
+        <!-- Recent Orders -->
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100">
+          <div class="px-5 py-4 border-b border-slate-100">
+            <div class="text-sm font-semibold text-navy-800">최근 주문</div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="data-table" id="dashboard-orders">
+              <thead><tr>
+                <th>주문번호</th><th>거래처</th><th>제품</th><th>수량/중량</th><th>상태</th><th>일자</th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== 1. ORDERS ========== -->
+      <div id="page-orders" class="page">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm text-slate-500">주문 목록</div>
+          <div class="flex gap-2">
+            <button class="btn btn-primary" onclick="openModal('order-modal')">+ 신규 주문</button>
+            <button class="btn btn-secondary" onclick="showToast('엑셀 파일을 업로드했습니다.')">엑셀 업로드</button>
+            <button class="btn btn-secondary" onclick="showToast('엑셀 파일이 생성되었습니다.')">엑셀 다운로드</button>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+          <table class="data-table" id="orders-table">
+            <thead><tr>
+              <th>주문번호</th><th>거래처</th><th>제품</th><th>수량/중량</th><th>수출구분</th><th>상태</th><th>일자</th><th>액션</th>
+            </tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== 2. PI ========== -->
+      <div id="page-pi" class="page">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm text-slate-500">Proforma Invoice 발행</div>
+          <div class="flex gap-2">
+            <button class="btn btn-secondary" onclick="showToast('엑셀 파일이 생성되었습니다.')">엑셀 다운로드</button>
+            <button class="btn btn-secondary" onclick="showToast('PDF 파일이 생성되었습니다.')">PDF 다운로드</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <!-- Order list for PI -->
+          <div class="bg-white rounded-xl shadow-sm border border-slate-100">
+            <div class="px-4 py-3 border-b border-slate-100 text-sm font-semibold text-navy-800">주문 선택</div>
+            <div id="pi-order-list" class="divide-y divide-slate-50"></div>
+          </div>
+          <!-- PI Preview -->
+          <div class="lg:col-span-2">
+            <div class="invoice-doc" id="pi-preview">
+              <div class="text-center text-slate-300 py-20">좌측에서 주문을 선택하세요</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== 3. QUOTE UPDATE ========== -->
+      <div id="page-quote-update" class="page">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm text-slate-500">견적 업데이트 — 수량/중량 조정 및 실제 로드 중량 반영</div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+            <div class="text-sm font-semibold text-navy-800 mb-4">견적 조정</div>
+            <div class="space-y-4">
+              <div>
+                <label class="text-xs text-slate-500 block mb-1">대상 주문</label>
+                <select id="qu-order-select" class="w-full" onchange="updateQuote()">
+                  <option value="0">ORD-2506-001 — Golden Lotus / 18K 체인 500g</option>
+                  <option value="2">ORD-2506-003 — Lucky Jewelry / 24K 골드바 30개</option>
+                </select>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="text-xs text-slate-500 block mb-1">PI 중량/수량</label>
+                  <input type="number" id="qu-pi-weight" class="w-full" value="500" readonly>
+                </div>
+                <div>
+                  <label class="text-xs text-slate-500 block mb-1">실제 로드 중량/수량</label>
+                  <input type="number" id="qu-actual-weight" class="w-full" value="510" oninput="updateQuote()">
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="text-xs text-slate-500 block mb-1">적용 금시세 (24K, 원/g)</label>
+                  <input type="number" id="qu-spot" class="w-full" value="153200" oninput="updateQuote()">
+                </div>
+                <div>
+                  <label class="text-xs text-slate-500 block mb-1">환율 (원/USD)</label>
+                  <input type="number" id="qu-rate" class="w-full" value="1380" oninput="updateQuote()">
+                </div>
+              </div>
+              <div class="flex items-center gap-3">
+                <label class="text-xs text-slate-500">제품 type별 라벨링</label>
+                <input type="checkbox" id="qu-label-toggle" checked onchange="updateQuote()">
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl shadow-sm border border-slate-100 p-5">
+            <div class="text-sm font-semibold text-navy-800 mb-4">변경 전/후 비교</div>
+            <div id="qu-comparison" class="space-y-3"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== PRODUCTION ORDER ========== -->
+      <div id="page-production" class="page">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm text-slate-500">생산발주서 생성</div>
+          <button class="btn btn-secondary" onclick="showToast('생산발주서 엑셀 파일이 생성되었습니다.')">엑셀 다운로드</button>
+        </div>
+        <div class="invoice-doc">
+          <div class="flex justify-between items-start mb-6">
+            <div>
+              <h2 class="text-lg font-bold text-navy-800">생산발주서</h2>
+              <div class="text-xs text-slate-400 mt-1">Production Order — PO-2506-001</div>
+            </div>
+            <div class="text-right text-xs text-slate-500">
+              <div>발주일: 2025-06-19</div>
+              <div>납기일: 2025-06-25</div>
+            </div>
+          </div>
+          <table class="data-table mb-4">
+            <thead><tr><th>제품코드</th><th>제품명</th><th>함량</th><th>중량/수량</th><th>비고</th></tr></thead>
+            <tbody>
+              <tr><td>P-001</td><td>18K 골드 체인</td><td>0.750 (18K)</td><td>500g</td><td>Golden Lotus 수출용</td></tr>
+              <tr><td>P-002</td><td>14K 반지(캐스팅)</td><td>0.585 (14K)</td><td>120건 (M사이즈)</td><td>Tokyo Metalworks 수출용</td></tr>
+            </tbody>
+          </table>
+          <div class="bg-slate-50 rounded-lg p-4 text-xs text-slate-500">
+            <strong>참고사항:</strong> 금시세 변동에 따라 최종 인보이스 금액은 선적 시점 시세로 재산정됩니다.
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== 4. CI ========== -->
+      <div id="page-ci" class="page">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm text-slate-500">Commercial Invoice 발행 (PI → CI 전환)</div>
+          <div class="flex gap-2">
+            <button class="btn btn-secondary" onclick="showToast('엑셀 파일이 생성되었습니다.')">엑셀 다운로드</button>
+            <button class="btn btn-secondary" onclick="showToast('PDF 파일이 생성되었습니다.')">PDF 다운로드</button>
+          </div>
+        </div>
+        <!-- Gap notice -->
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 flex items-start gap-3">
+          <svg class="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+          <div>
+            <div class="text-sm font-semibold text-amber-800">이격(Gap) 반영 안내</div>
+            <div class="text-xs text-amber-600 mt-1">PI 시세: ₩151,800/g → CI 시세: ₩153,200/g | <strong>차액: +₩1,400/g</strong> | 18K 체인 500g 기준 금속가 차이: <strong class="text-red-600">+₩525,000</strong></div>
+          </div>
+        </div>
+        <!-- Tabs -->
+        <div class="flex gap-2 mb-4">
+          <button class="tab-btn active" onclick="switchCITab('customer')">고객별 개별 시트</button>
+          <button class="tab-btn" onclick="switchCITab('shipping')">Shipping별 종합 시트</button>
+        </div>
+        <div id="ci-customer" class="invoice-doc">
+          <div class="flex justify-between items-start mb-6">
+            <div>
+              <h2 class="text-lg font-bold text-navy-800">COMMERCIAL INVOICE</h2>
+              <div class="text-xs text-slate-400">CI-2506-003 | Lucky Jewelry Co</div>
+            </div>
+            <div class="text-right text-xs text-slate-500">
+              <div>Date: 2025-06-20</div>
+              <div>Shipment Date: 2025-06-22</div>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-6 mb-6 text-xs">
+            <div class="bg-slate-50 rounded-lg p-3">
+              <div class="font-semibold mb-1">Shipper</div>
+              <div>(주)성진골드</div>
+              <div>서울특별시 종로구 종로 123</div>
+            </div>
+            <div class="bg-slate-50 rounded-lg p-3">
+              <div class="font-semibold mb-1">Consignee</div>
+              <div>Lucky Jewelry Co</div>
+              <div>Ho Chi Minh City, Vietnam</div>
+            </div>
+          </div>
+          <table class="data-table mb-4">
+            <thead><tr><th>품목</th><th>함량</th><th>수량</th><th>금시세(24K)</th><th>금속가(₩)</th><th>공임(₩)</th><th>합계(₩)</th><th>USD</th></tr></thead>
+            <tbody id="ci-customer-body"></tbody>
+          </table>
+          <div class="flex justify-between items-center pt-4 border-t border-slate-200">
+            <div class="text-xs text-slate-400">
+              적용 금시세: ₩153,200/g (24K) | 환율: ₩1,380/USD
+            </div>
+            <div class="text-right">
+              <div class="text-xs text-slate-400">이격 반영 후 합계</div>
+              <div class="text-xl font-bold text-navy-800" id="ci-total-display">₩46,098,000</div>
+              <div class="text-sm text-gold-600" id="ci-usd-display">USD 33,405.80</div>
+            </div>
+          </div>
+        </div>
+        <div id="ci-shipping" class="invoice-doc hidden">
+          <div class="mb-4">
+            <h2 class="text-lg font-bold text-navy-800">SHIPPING CONSOLIDATED INVOICE</h2>
+            <div class="text-xs text-slate-400">Shipment #SHP-2506-001 | Date: 2025-06-22</div>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>CI No.</th><th>거래처</th><th>품목</th><th>금액(₩)</th><th>USD</th><th>수출구분</th></tr></thead>
+            <tbody>
+              <tr><td>CI-2506-001</td><td>Golden Lotus Ltd</td><td>18K 골드 체인</td><td class="text-right font-medium">₩61,700,000</td><td class="text-right">$44,710.14</td><td><span class="badge bg-blue-50 text-blue-700">일반수출</span></td></tr>
+              <tr><td>CI-2506-003</td><td>Lucky Jewelry Co</td><td>24K 골드바 10g</td><td class="text-right font-medium">₩46,098,000</td><td class="text-right">$33,405.80</td><td><span class="badge bg-blue-50 text-blue-700">일반수출</span></td></tr>
+            </tbody>
+            <tfoot>
+              <tr class="font-bold"><td colspan="3" class="text-right">합계</td><td class="text-right">₩107,798,000</td><td class="text-right">$78,115.94</td><td></td></tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== 5. SALES ========== -->
+      <div id="page-sales" class="page">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm text-slate-500">매출 실적 분석</div>
+          <button class="btn btn-secondary" onclick="showToast('매출 실적 엑셀 파일이 생성되었습니다.')">엑셀 다운로드</button>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+          <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+            <div class="text-sm font-semibold text-navy-800 mb-3">거래처별 매출</div>
+            <canvas id="chart-sales-customer" height="180"></canvas>
+          </div>
+          <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+            <div class="text-sm font-semibold text-navy-800 mb-3">월별 매출 추이</div>
+            <canvas id="chart-sales-monthly" height="180"></canvas>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+          <div class="px-5 py-4 border-b border-slate-100 text-sm font-semibold text-navy-800">매출 실적 테이블 (월별/거래처별)</div>
+          <table class="data-table">
+            <thead><tr><th>월</th><th>Golden Lotus Ltd</th><th>Tokyo Metalworks</th><th>Lucky Jewelry Co</th><th>합계</th></tr></thead>
+            <tbody>
+              <tr><td>2025-01</td><td class="text-right">₩52,000,000</td><td class="text-right">₩28,000,000</td><td class="text-right">₩15,000,000</td><td class="text-right font-bold">₩95,000,000</td></tr>
+              <tr><td>2025-02</td><td class="text-right">₩61,000,000</td><td class="text-right">₩32,000,000</td><td class="text-right">₩22,000,000</td><td class="text-right font-bold">₩115,000,000</td></tr>
+              <tr><td>2025-03</td><td class="text-right">₩58,000,000</td><td class="text-right">₩35,000,000</td><td class="text-right">₩38,000,000</td><td class="text-right font-bold">₩131,000,000</td></tr>
+              <tr><td>2025-04</td><td class="text-right">₩72,000,000</td><td class="text-right">₩29,000,000</td><td class="text-right">₩43,000,000</td><td class="text-right font-bold">₩144,000,000</td></tr>
+              <tr><td>2025-05</td><td class="text-right">₩68,000,000</td><td class="text-right">₩41,000,000</td><td class="text-right">₩55,000,000</td><td class="text-right font-bold">₩164,000,000</td></tr>
+              <tr><td>2025-06</td><td class="text-right">₩78,000,000</td><td class="text-right">₩52,000,000</td><td class="text-right">₩54,520,000</td><td class="text-right font-bold">₩184,520,000</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== 6. COLLECTIONS ========== -->
+      <div id="page-collections" class="page">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm text-slate-500">거래처별 수금/미수금 현황</div>
+          <div class="flex gap-2">
+            <select id="col-filter" class="text-sm" onchange="filterCollections()">
+              <option value="all">전체</option>
+              <option value="일반수출">일반수출</option>
+              <option value="추가가공수출">추가가공수출</option>
+            </select>
+            <button class="btn btn-secondary" onclick="showToast('수금 현황 엑셀 파일이 생성되었습니다.')">엑셀 다운로드</button>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+          <table class="data-table" id="collections-table">
+            <thead><tr><th>거래처</th><th>국가</th><th>수출구분</th><th>매출액</th><th>수금액</th><th>미수금</th><th>수금율</th><th>상태</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="mt-4 bg-amber-50 border border-amber-100 rounded-xl p-4 text-xs text-amber-700">
+          <strong>수금 대상 금액 범위 안내:</strong> 일반수출은 인보이스 전체 금액(금속가+공임)이 수금 대상이며, 추가가공수출은 공임 부분만 수금 대상입니다.
+        </div>
+      </div>
+
+      <!-- ========== BANK ========== -->
+      <div id="page-bank" class="page">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm text-slate-500">은행 입금내역</div>
+          <div class="flex gap-2">
+            <button class="btn btn-secondary" onclick="showToast('입금내역 엑셀이 업로드되었습니다. 자동 대사 처리됨.')">엑셀 업로드</button>
+            <button class="btn btn-secondary" onclick="showToast('엑셀 파일이 생성되었습니다.')">엑셀 다운로드</button>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+          <table class="data-table">
+            <thead><tr><th>입금일</th><th>은행</th><th>입금액</th><th>송금인</th><th>매칭 인보이스</th><th>상태</th></tr></thead>
+            <tbody>
+              <tr>
+                <td>2025-06-18</td><td>KEB하나은행</td><td class="text-right font-medium">USD 33,405.80</td><td>Lucky Jewelry Co</td><td>CI-2506-003</td>
+                <td><span class="badge bg-emerald-50 text-emerald-700">매칭됨</span></td>
+              </tr>
+              <tr>
+                <td>2025-06-17</td><td>KEB하나은행</td><td class="text-right font-medium">USD 18,200.00</td><td>Tokyo Metalworks</td><td>CI-2506-002</td>
+                <td><span class="badge bg-emerald-50 text-emerald-700">매칭됨</span></td>
+              </tr>
+              <tr>
+                <td>2025-06-15</td><td>국민은행</td><td class="text-right font-medium">USD 22,000.00</td><td>Golden Lotus Ltd</td><td>CI-2505-012</td>
+                <td><span class="badge bg-emerald-50 text-emerald-700">매칭됨</span></td>
+              </tr>
+              <tr>
+                <td>2025-06-19</td><td>KEB하나은행</td><td class="text-right font-medium">USD 5,120.00</td><td>Unknown Sender</td><td>-</td>
+                <td><span class="badge bg-amber-50 text-amber-700">미매칭</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== MASTER: PRODUCTS ========== -->
+      <div id="page-master-products" class="page">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm text-slate-500">제품 Spec 관리</div>
+          <button class="btn btn-primary" onclick="openModal('product-modal')">+ 제품 추가</button>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+          <table class="data-table">
+            <thead><tr><th>코드</th><th>제품명</th><th>함량(순도)</th><th>비고</th><th>액션</th></tr></thead>
+            <tbody>
+              <tr><td>P-001</td><td>18K 골드 체인</td><td>0.750</td><td>중량 변동</td><td><button class="text-gold-600 text-xs hover:underline" onclick="showToast('수정 모달이 열립니다.')">수정</button></td></tr>
+              <tr><td>P-002</td><td>14K 반지(캐스팅)</td><td>0.585</td><td>사이즈별</td><td><button class="text-gold-600 text-xs hover:underline" onclick="showToast('수정 모달이 열립니다.')">수정</button></td></tr>
+              <tr><td>P-003</td><td>24K 골드바 10g</td><td>0.999</td><td>고정 10g</td><td><button class="text-gold-600 text-xs hover:underline" onclick="showToast('수정 모달이 열립니다.')">수정</button></td></tr>
+              <tr><td>P-004</td><td>금도금 커넥터 부품</td><td>도금</td><td>건당</td><td><button class="text-gold-600 text-xs hover:underline" onclick="showToast('수정 모달이 열립니다.')">수정</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== MASTER: SPOT ========== -->
+      <div id="page-master-spot" class="page">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm text-slate-500">금시세 관리 (일자별 24K 기준가)</div>
+          <button class="btn btn-primary" onclick="openModal('spot-modal')">+ 시세 등록</button>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+            <table class="data-table">
+              <thead><tr><th>일자</th><th>24K 금시세 (원/g)</th><th>전일 대비</th><th>비고</th></tr></thead>
+              <tbody>
+                <tr><td>2025-06-20</td><td class="font-medium">₩153,200</td><td class="text-emerald-500">▲ +1,400</td><td>오늘</td></tr>
+                <tr><td>2025-06-19</td><td class="font-medium">₩151,800</td><td class="text-emerald-500">▲ +400</td><td></td></tr>
+                <tr><td>2025-06-18</td><td class="font-medium">₩151,400</td><td class="text-emerald-500">▲ +500</td><td></td></tr>
+                <tr><td>2025-06-17</td><td class="font-medium">₩150,900</td><td class="text-emerald-500">▲ +700</td><td></td></tr>
+                <tr><td>2025-06-16</td><td class="font-medium">₩150,200</td><td class="text-red-500">▼ -300</td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bg-white rounded-xl p-5 shadow-sm border border-slate-100">
+            <div class="text-sm font-semibold text-navy-800 mb-3">금시세 추이</div>
+            <canvas id="chart-spot" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========== MASTER: CUSTOMERS ========== -->
+      <div id="page-master-customers" class="page">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm text-slate-500">고객 기준정보</div>
+          <button class="btn btn-primary" onclick="openModal('customer-modal')">+ 고객 추가</button>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+          <table class="data-table">
+            <thead><tr><th>코드</th><th>거래처</th><th>국가</th><th>수출구분</th><th>연락처</th><th>액션</th></tr></thead>
+            <tbody>
+              <tr><td>C-001</td><td>Golden Lotus Ltd</td><td>Hong Kong</td><td><span class="badge bg-blue-50 text-blue-700">일반수출</span></td><td>+852-2345-6789</td><td><button class="text-gold-600 text-xs hover:underline" onclick="showToast('수정 모달이 열립니다.')">수정</button></td></tr>
+              <tr><td>C-002</td><td>Tokyo Metalworks</td><td>Japan</td><td><span class="badge bg-purple-50 text-purple-700">추가가공수출</span></td><td>+81-3-1234-5678</td><td><button class="text-gold-600 text-xs hover:underline" onclick="showToast('수정 모달이 열립니다.')">수정</button></td></tr>
+              <tr><td>C-003</td><td>Lucky Jewelry Co</td><td>Vietnam</td><td><span class="badge bg-blue-50 text-blue-700">일반수출</span></td><td>+84-28-3456-7890</td><td><button class="text-gold-600 text-xs hover:underline" onclick="showToast('수정 모달이 열립니다.')">수정</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========== MASTER: LABOR ========== -->
+      <div id="page-master-labor" class="page">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-sm text-slate-500">고객공임 관리 (제품별 + 사이즈별)</div>
+          <button class="btn btn-primary" onclick="openModal('labor-modal')">+ 공임 추가</button>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-x-auto">
+          <table class="data-table">
+            <thead><tr><th>제품</th><th>사이즈/구분</th><th>공임</th><th>단위</th><th>액션</th></tr></thead>
+            <tbody>
+              <tr><td>18K 골드 체인</td><td>-</td><td class="font-medium">₩8,500</td><td>원/g</td><td><button class="text-gold-600 text-xs hover:underline" onclick="showToast('수정 모달이 열립니다.')">수정</button></td></tr>
+              <tr><td>14K 반지(캐스팅)</td><td>S</td><td class="font-medium">₩12,000</td><td>원/건</td><td><button class="text-gold-600 text-xs hover:underline" onclick="showToast('수정 모달이 열립니다.')">수정</button></td></tr>
+              <tr><td>14K 반지(캐스팅)</td><td>M</td><td class="font-medium">₩14,000</td><td>원/건</td><td><button class="text-gold-600 text-xs hover:underline" onclick="showToast('수정 모달이 열립니다.')">수정</button></td></tr>
+              <tr><td>24K 골드바 10g</td><td>-</td><td class="font-medium">₩5,000</td><td>원/건</td><td><button class="text-gold-600 text-xs hover:underline" onclick="showToast('수정 모달이 열립니다.')">수정</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ========== MODALS ========== -->
+<!-- New Order Modal -->
+<div id="order-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('order-modal')">
+  <div class="modal-content p-6">
+    <div class="flex justify-between items-center mb-5">
+      <h3 class="text-lg font-bold text-navy-800">신규 주문 등록</h3>
+      <button onclick="closeModal('order-modal')" class="text-slate-400 hover:text-slate-600">&times;</button>
+    </div>
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="text-xs text-slate-500 block mb-1">거래처</label>
+          <select class="w-full"><option>Golden Lotus Ltd</option><option>Tokyo Metalworks</option><option>Lucky Jewelry Co</option></select>
+        </div>
+        <div><label class="text-xs text-slate-500 block mb-1">수출구분</label>
+          <select class="w-full"><option>일반수출</option><option>추가가공수출</option></select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="text-xs text-slate-500 block mb-1">제품</label>
+          <select class="w-full"><option>18K 골드 체인</option><option>14K 반지(캐스팅)</option><option>24K 골드바 10g</option><option>금도금 커넥터 부품</option></select>
+        </div>
+        <div><label class="text-xs text-slate-500 block mb-1">중량/수량</label>
+          <input type="number" class="w-full" placeholder="500">
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button class="btn btn-secondary" onclick="closeModal('order-modal')">취소</button>
+        <button class="btn btn-primary" onclick="closeModal('order-modal');showToast('주문이 등록되었습니다. (ORD-2506-005)')">등록</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Generic modals for master data -->
+<div id="product-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('product-modal')">
+  <div class="modal-content p-6">
+    <div class="flex justify-between items-center mb-5">
+      <h3 class="text-lg font-bold text-navy-800">제품 추가</h3>
+      <button onclick="closeModal('product-modal')" class="text-slate-400 hover:text-slate-600">&times;</button>
+    </div>
+    <div class="space-y-4">
+      <div><label class="text-xs text-slate-500 block mb-1">제품 코드</label><input class="w-full" placeholder="P-005"></div>
+      <div><label class="text-xs text-slate-500 block mb-1">제품명</label><input class="w-full" placeholder="제품명 입력"></div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="text-xs text-slate-500 block mb-1">함량(순도)</label><input class="w-full" placeholder="0.999"></div>
+        <div><label class="text-xs text-slate-500 block mb-1">비고</label><input class="w-full" placeholder="비고"></div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button class="btn btn-secondary" onclick="closeModal('product-modal')">취소</button>
+        <button class="btn btn-primary" onclick="closeModal('product-modal');showToast('제품이 등록되었습니다.')">등록</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="spot-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('spot-modal')">
+  <div class="modal-content p-6">
+    <div class="flex justify-between items-center mb-5">
+      <h3 class="text-lg font-bold text-navy-800">금시세 등록</h3>
+      <button onclick="closeModal('spot-modal')" class="text-slate-400 hover:text-slate-600">&times;</button>
+    </div>
+    <div class="space-y-4">
+      <div><label class="text-xs text-slate-500 block mb-1">일자</label><input type="date" class="w-full" value="2025-06-21"></div>
+      <div><label class="text-xs text-slate-500 block mb-1">24K 금시세 (원/g)</label><input type="number" class="w-full" placeholder="153200"></div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button class="btn btn-secondary" onclick="closeModal('spot-modal')">취소</button>
+        <button class="btn btn-primary" onclick="closeModal('spot-modal');showToast('금시세가 등록되었습니다.')">등록</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="customer-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('customer-modal')">
+  <div class="modal-content p-6">
+    <div class="flex justify-between items-center mb-5">
+      <h3 class="text-lg font-bold text-navy-800">고객 추가</h3>
+      <button onclick="closeModal('customer-modal')" class="text-slate-400 hover:text-slate-600">&times;</button>
+    </div>
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="text-xs text-slate-500 block mb-1">고객 코드</label><input class="w-full" placeholder="C-004"></div>
+        <div><label class="text-xs text-slate-500 block mb-1">거래처명</label><input class="w-full" placeholder="회사명"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="text-xs text-slate-500 block mb-1">국가</label><input class="w-full" placeholder="국가"></div>
+        <div><label class="text-xs text-slate-500 block mb-1">수출구분</label>
+          <select class="w-full"><option>일반수출</option><option>추가가공수출</option></select>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button class="btn btn-secondary" onclick="closeModal('customer-modal')">취소</button>
+        <button class="btn btn-primary" onclick="closeModal('customer-modal');showToast('고객이 등록되었습니다.')">등록</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="labor-modal" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('labor-modal')">
+  <div class="modal-content p-6">
+    <div class="flex justify-between items-center mb-5">
+      <h3 class="text-lg font-bold text-navy-800">공임 추가</h3>
+      <button onclick="closeModal('labor-modal')" class="text-slate-400 hover:text-slate-600">&times;</button>
+    </div>
+    <div class="space-y-4">
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="text-xs text-slate-500 block mb-1">제품</label>
+          <select class="w-full"><option>18K 골드 체인</option><option>14K 반지(캐스팅)</option><option>24K 골드바 10g</option><option>금도금 커넥터 부품</option></select>
+        </div>
+        <div><label class="text-xs text-slate-500 block mb-1">사이즈/구분</label><input class="w-full" placeholder="S / M / -"></div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="text-xs text-slate-500 block mb-1">공임</label><input type="number" class="w-full" placeholder="8500"></div>
+        <div><label class="text-xs text-slate-500 block mb-1">단위</label>
+          <select class="w-full"><option>원/g</option><option>원/건</option></select>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button class="btn btn-secondary" onclick="closeModal('labor-modal')">취소</button>
+        <button class="btn btn-primary" onclick="closeModal('labor-modal');showToast('공임이 등록되었습니다.')">등록</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== MOCK DATA =====
+const EXCHANGE_RATE = 1380;
+const spotPrices = [
+  { date: '2025-06-16', price: 150200 },
+  { date: '2025-06-17', price: 150900 },
+  { date: '2025-06-18', price: 151400 },
+  { date: '2025-06-19', price: 151800 },
+  { date: '2025-06-20', price: 153200 },
+];
+const todaySpot = 153200;
+
+const products = [
+  { code: 'P-001', name: '18K 골드 체인', purity: 0.750, note: '중량 변동' },
+  { code: 'P-002', name: '14K 반지(캐스팅)', purity: 0.585, note: '사이즈별' },
+  { code: 'P-003', name: '24K 골드바 10g', purity: 0.999, note: '고정 10g' },
+  { code: 'P-004', name: '금도금 커넥터 부품', purity: null, note: '건당' },
+];
+
+const customers = [
+  { code: 'C-001', name: 'Golden Lotus Ltd', country: 'Hong Kong', exportType: '일반수출' },
+  { code: 'C-002', name: 'Tokyo Metalworks', country: 'Japan', exportType: '추가가공수출' },
+  { code: 'C-003', name: 'Lucky Jewelry Co', country: 'Vietnam', exportType: '일반수출' },
+];
+
+const orders = [
+  { id: 'ORD-2506-001', customer: 'Golden Lotus Ltd', customerCode: 'C-001', product: '18K 골드 체인', productCode: 'P-001', qty: '500g', weight: 500, purity: 0.750, laborPerUnit: 8500, laborUnit: 'g', status: 'PI발행', date: '2025-06-18', spot: 151800, exportType: '일반수출' },
+  { id: 'ORD-2506-002', customer: 'Tokyo Metalworks', customerCode: 'C-002', product: '14K 반지(캐스팅) M', productCode: 'P-002', qty: '120건', weight: 120, purity: 0.585, laborPerUnit: 14000, laborUnit: '건', status: '생산중', date: '2025-06-19', spot: 151800, exportType: '추가가공수출' },
+  { id: 'ORD-2506-003', customer: 'Lucky Jewelry Co', customerCode: 'C-003', product: '24K 골드바 10g', productCode: 'P-003', qty: '30개', weight: 300, purity: 0.999, laborPerUnit: 5000, laborUnit: '건', status: 'CI발행', date: '2025-06-17', spot: 150900, exportType: '일반수출' },
+  { id: 'ORD-2506-004', customer: 'Golden Lotus Ltd', customerCode: 'C-001', product: '금도금 커넥터 부품', productCode: 'P-004', qty: '2,000건', weight: 2000, purity: null, laborPerUnit: 500, laborUnit: '건', status: '접수', date: '2025-06-20', spot: 153200, exportType: '일반수출' },
+];
+
+const collections = [
+  { customer: 'Golden Lotus Ltd', country: 'Hong Kong', exportType: '일반수출', sales: 78000000, collected: 16825000, outstanding: 61175000 },
+  { customer: 'Tokyo Metalworks', country: 'Japan', exportType: '추가가공수출', sales: 52000000, collected: 52000000, outstanding: 0 },
+  { customer: 'Lucky Jewelry Co', country: 'Vietnam', exportType: '일반수출', sales: 54520000, collected: 32020000, outstanding: 22500000 },
+];
+
+// ===== CALCULATION FUNCTIONS =====
+function calcMetal(spot24k, purity, weightG) {
+  return Math.round(spot24k * purity * weightG);
+}
+function calcInvoice(spot24k, purity, weightG, laborPerUnit, laborQty) {
+  const metal = purity ? calcMetal(spot24k, purity, weightG) : 0;
+  const labor = Math.round(laborPerUnit * laborQty);
+  return { metal, labor, total: metal + labor };
+}
+function formatKRW(n) {
+  return '₩' + Math.round(n).toLocaleString('ko-KR');
+}
+function formatUSD(n) {
+  return 'USD ' + (n / EXCHANGE_RATE).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fmt(n) { return Math.round(n).toLocaleString('ko-KR'); }
+
+// ===== STATUS BADGE =====
+function statusBadge(status) {
+  const map = {
+    '접수': 'bg-slate-100 text-slate-600',
+    'PI발행': 'bg-blue-50 text-blue-700',
+    '생산중': 'bg-amber-50 text-amber-700',
+    'CI발행': 'bg-emerald-50 text-emerald-700',
+    '완료': 'bg-green-50 text-green-700',
+  };
+  return `<span class="badge ${map[status] || 'bg-slate-100 text-slate-600'}">${status}</span>`;
+}
+
+// ===== TOAST =====
+function showToast(msg) {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.innerHTML = `<svg class="w-5 h-5 text-gold-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity 0.3s'; setTimeout(() => t.remove(), 300); }, 3000);
+}
+
+// ===== MODAL =====
+function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+// ===== ROUTING =====
+const pageTitles = {
+  dashboard: '대시보드', orders: '1. 주문 접수', pi: '2. 견적서(PI) 발행',
+  'quote-update': '3. 견적 업데이트', production: '생산발주서 생성',
+  ci: '4. 최종 인보이스(CI) 발행', sales: '5. 매출 관리',
+  collections: '6. 수금 관리', bank: '은행 입금내역',
+  'master-products': '제품 Spec 관리', 'master-spot': '금시세 관리',
+  'master-customers': '고객 기준정보', 'master-labor': '고객공임 관리',
+};
+
+function navigateTo(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+  const target = document.getElementById('page-' + page);
+  if (target) target.classList.add('active');
+  const link = document.querySelector(`[data-page="${page}"]`);
+  if (link) link.classList.add('active');
+  document.getElementById('page-title').textContent = pageTitles[page] || page;
+  if (page === 'dashboard') initCharts();
+  if (page === 'sales') initSalesCharts();
+  if (page === 'master-spot') initSpotChart();
+  if (page === 'quote-update') updateQuote();
+}
+
+window.addEventListener('hashchange', () => {
+  const page = location.hash.slice(1) || 'dashboard';
+  navigateTo(page);
+});
+
+// ===== RENDER TABLES =====
+function renderOrders(tableId, limit) {
+  const tbody = document.querySelector(`#${tableId} tbody`);
+  const data = limit ? orders.slice(0, limit) : orders;
+  tbody.innerHTML = data.map(o => {
+    const inv = o.purity ? calcInvoice(o.spot, o.purity, o.weight, o.laborPerUnit, o.laborUnit === 'g' ? o.weight : o.weight) : { total: o.laborPerUnit * o.weight };
+    return `<tr>
+      <td class="font-mono text-xs">${o.id}</td>
+      <td>${o.customer}</td>
+      <td>${o.product}</td>
+      <td class="text-right">${o.qty}</td>
+      ${tableId === 'orders-table' ? `<td><span class="badge ${o.exportType === '일반수출' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}">${o.exportType}</span></td>` : ''}
+      <td>${statusBadge(o.status)}</td>
+      <td class="text-slate-400 text-xs">${o.date}</td>
+      ${tableId === 'orders-table' ? `<td><button class="text-gold-600 text-xs hover:underline" onclick="location.hash='pi'">PI 발행</button></td>` : ''}
+    </tr>`;
+  }).join('');
+}
+
+function renderPIList() {
+  const c = document.getElementById('pi-order-list');
+  c.innerHTML = orders.filter(o => ['PI발행', '접수'].includes(o.status)).map((o, i) => `
+    <div class="px-4 py-3 cursor-pointer hover:bg-gold-50 transition-colors ${i === 0 ? 'bg-gold-50 border-l-2 border-gold-500' : ''}" onclick="renderPI(${orders.indexOf(o)})">
+      <div class="text-sm font-medium text-navy-800">${o.id}</div>
+      <div class="text-xs text-slate-400">${o.customer} · ${o.product}</div>
+      <div class="text-xs mt-1">${statusBadge(o.status)}</div>
+    </div>
+  `).join('');
+  renderPI(0);
+}
+
+function renderPI(idx) {
+  const o = orders[idx];
+  if (!o) return;
+  const isPlating = !o.purity;
+  const inv = isPlating ? { metal: 0, labor: o.laborPerUnit * o.weight, total: o.laborPerUnit * o.weight } : calcInvoice(o.spot, o.purity, o.weight, o.laborPerUnit, o.laborUnit === 'g' ? o.weight : o.weight);
+  const usd = inv.total / EXCHANGE_RATE;
+  document.getElementById('pi-preview').innerHTML = `
+    <div class="flex justify-between items-start mb-6">
+      <div>
+        <div class="text-xs text-gold-500 font-semibold tracking-wider mb-1">PROFORMA INVOICE</div>
+        <h2 class="text-lg font-bold text-navy-800">PI-${o.id.replace('ORD-', '')}</h2>
+      </div>
+      <div class="text-right text-xs text-slate-500">
+        <div>Date: ${o.date}</div>
+        <div>Valid Until: 2025-07-${o.date.slice(-2)}</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-6 mb-6 text-xs">
+      <div class="bg-slate-50 rounded-lg p-3">
+        <div class="font-semibold mb-1">Shipper (Seller)</div>
+        <div class="font-medium">(주)성진골드</div>
+        <div>서울특별시 종로구 종로 123</div>
+        <div>Tel: 02-1234-5678</div>
+      </div>
+      <div class="bg-slate-50 rounded-lg p-3">
+        <div class="font-semibold mb-1">Consignee (Buyer)</div>
+        <div class="font-medium">${o.customer}</div>
+        <div>${customers.find(c => c.code === o.customerCode)?.country || ''}</div>
+      </div>
+    </div>
+    <table class="data-table mb-6">
+      <thead><tr><th>품목</th><th>함량</th><th>수량/중량</th><th>금시세(24K)</th><th>금속가</th><th>공임</th><th>합계</th></tr></thead>
+      <tbody>
+        <tr>
+          <td class="font-medium">${o.product}</td>
+          <td>${isPlating ? '도금' : o.purity}</td>
+          <td class="text-right">${o.qty}</td>
+          <td class="text-right">${isPlating ? '-' : formatKRW(o.spot) + '/g'}</td>
+          <td class="text-right">${isPlating ? '-' : formatKRW(inv.metal)}</td>
+          <td class="text-right">${formatKRW(inv.labor)}</td>
+          <td class="text-right font-bold">${formatKRW(inv.total)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="flex justify-between items-end pt-4 border-t border-slate-200">
+      <div class="text-xs text-slate-400 space-y-0.5">
+        <div>적용 금시세: ${formatKRW(o.spot)}/g (24K 기준)</div>
+        <div>적용 환율: ₩${fmt(EXCHANGE_RATE)}/USD</div>
+      </div>
+      <div class="text-right">
+        <div class="text-sm text-slate-500">Total Amount</div>
+        <div class="text-2xl font-bold text-navy-800">${formatKRW(inv.total)}</div>
+        <div class="text-sm text-gold-600">${formatUSD(inv.total)}</div>
+      </div>
+    </div>
+  `;
+  // highlight selected
+  document.querySelectorAll('#pi-order-list > div').forEach((el, i) => {
+    el.className = el.className.replace(/bg-gold-50 border-l-2 border-gold-500/g, '');
+    if (orders.indexOf(o) === orders.findIndex(x => ['PI발행','접수'].includes(x.status)) + i || el.textContent.includes(o.id)) {
+      // handled separately
+    }
+  });
+}
+
+function renderCollections() {
+  const filter = document.getElementById('col-filter')?.value || 'all';
+  const tbody = document.querySelector('#collections-table tbody');
+  const data = filter === 'all' ? collections : collections.filter(c => c.exportType === filter);
+  tbody.innerHTML = data.map(c => {
+    const rate = c.sales > 0 ? Math.round(c.collected / c.sales * 100) : 0;
+    const isOverdue = c.outstanding > 0;
+    return `<tr>
+      <td class="font-medium">${c.customer}</td>
+      <td>${c.country}</td>
+      <td><span class="badge ${c.exportType === '일반수출' ? 'bg-blue-50 text-blue-700' : 'bg-purple-50 text-purple-700'}">${c.exportType}</span></td>
+      <td class="text-right">${formatKRW(c.sales)}</td>
+      <td class="text-right text-emerald-600">${formatKRW(c.collected)}</td>
+      <td class="text-right ${isOverdue ? 'text-red-500 font-bold' : ''}">${isOverdue ? formatKRW(c.outstanding) : '-'}</td>
+      <td>
+        <div class="flex items-center gap-2">
+          <div class="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden"><div class="h-full rounded-full ${rate === 100 ? 'bg-emerald-500' : 'bg-amber-400'}" style="width:${rate}%"></div></div>
+          <span class="text-xs text-slate-500">${rate}%</span>
+        </div>
+      </td>
+      <td>${rate === 100 ? '<span class="badge bg-emerald-50 text-emerald-700">완납</span>' : rate > 0 ? '<span class="badge bg-amber-50 text-amber-700">부분수금</span>' : '<span class="badge bg-red-50 text-red-700">미수</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+function filterCollections() { renderCollections(); }
+
+// CI body
+function renderCIBody() {
+  const o = orders[2]; // Lucky Jewelry CI
+  const ciSpot = todaySpot;
+  const inv = calcInvoice(ciSpot, o.purity, o.weight, o.laborPerUnit, 30);
+  document.getElementById('ci-customer-body').innerHTML = `
+    <tr>
+      <td class="font-medium">${o.product}</td>
+      <td>${o.purity}</td>
+      <td class="text-right">30개 (300g)</td>
+      <td class="text-right">${formatKRW(ciSpot)}</td>
+      <td class="text-right">${formatKRW(inv.metal)}</td>
+      <td class="text-right">${formatKRW(inv.labor)}</td>
+      <td class="text-right font-bold">${formatKRW(inv.total)}</td>
+      <td class="text-right text-gold-600">${formatUSD(inv.total)}</td>
+    </tr>
+  `;
+  document.getElementById('ci-total-display').textContent = formatKRW(inv.total);
+  document.getElementById('ci-usd-display').textContent = formatUSD(inv.total);
+}
+
+function switchCITab(tab) {
+  document.querySelectorAll('#page-ci .tab-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('ci-customer').classList.toggle('hidden', tab !== 'customer');
+  document.getElementById('ci-shipping').classList.toggle('hidden', tab !== 'shipping');
+}
+
+// ===== QUOTE UPDATE =====
+function updateQuote() {
+  const idx = parseInt(document.getElementById('qu-order-select').value);
+  const o = orders[idx];
+  const piWeight = idx === 0 ? 500 : 30;
+  const piSpot = o.spot;
+  document.getElementById('qu-pi-weight').value = piWeight;
+  const actualWeight = parseFloat(document.getElementById('qu-actual-weight').value) || piWeight;
+  const spot = parseFloat(document.getElementById('qu-spot').value) || todaySpot;
+  const rate = parseFloat(document.getElementById('qu-rate').value) || EXCHANGE_RATE;
+  const showLabel = document.getElementById('qu-label-toggle').checked;
+
+  const laborQtyBefore = o.laborUnit === 'g' ? piWeight : piWeight;
+  const laborQtyAfter = o.laborUnit === 'g' ? actualWeight : actualWeight;
+  const before = calcInvoice(piSpot, o.purity, piWeight, o.laborPerUnit, laborQtyBefore);
+  const after = calcInvoice(spot, o.purity, actualWeight, o.laborPerUnit, laborQtyAfter);
+  const diff = after.total - before.total;
+
+  document.getElementById('qu-comparison').innerHTML = `
+    ${showLabel ? `<div class="text-xs text-slate-400 mb-2">제품: ${o.product} | 함량: ${o.purity} | 공임: ₩${fmt(o.laborPerUnit)}/${o.laborUnit}</div>` : ''}
+    <div class="grid grid-cols-3 gap-3 text-center">
+      <div class="bg-slate-50 rounded-lg p-4">
+        <div class="text-[10px] text-slate-400 mb-1">변경 전 (PI)</div>
+        <div class="text-lg font-bold text-navy-800">${formatKRW(before.total)}</div>
+        <div class="text-xs text-slate-400 mt-1">금속가 ${formatKRW(before.metal)}</div>
+        <div class="text-xs text-slate-400">공임 ${formatKRW(before.labor)}</div>
+        <div class="text-xs text-gold-600 mt-1">${formatUSD(before.total)}</div>
+      </div>
+      <div class="flex items-center justify-center">
+        <svg class="w-8 h-8 text-gold-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+      </div>
+      <div class="bg-gold-50 rounded-lg p-4 border border-gold-200">
+        <div class="text-[10px] text-gold-600 mb-1">변경 후</div>
+        <div class="text-lg font-bold text-navy-800">${formatKRW(after.total)}</div>
+        <div class="text-xs text-slate-400 mt-1">금속가 ${formatKRW(after.metal)}</div>
+        <div class="text-xs text-slate-400">공임 ${formatKRW(after.labor)}</div>
+        <div class="text-xs text-gold-600 mt-1">${formatUSD(after.total)}</div>
+      </div>
+    </div>
+    <div class="mt-4 p-3 rounded-lg ${diff > 0 ? 'bg-red-50 border border-red-100' : diff < 0 ? 'bg-emerald-50 border border-emerald-100' : 'bg-slate-50'}">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-medium ${diff > 0 ? 'text-red-700' : diff < 0 ? 'text-emerald-700' : 'text-slate-700'}">차액</span>
+        <span class="text-lg font-bold ${diff > 0 ? 'text-red-600' : diff < 0 ? 'text-emerald-600' : 'text-slate-600'}">${diff > 0 ? '+' : ''}${formatKRW(diff)}</span>
+      </div>
+      <div class="text-xs ${diff > 0 ? 'text-red-400' : diff < 0 ? 'text-emerald-400' : 'text-slate-400'} mt-1">
+        중량 차이: ${actualWeight - piWeight > 0 ? '+' : ''}${actualWeight - piWeight}${o.laborUnit} | 금시세 차이: ${spot - piSpot > 0 ? '+' : ''}₩${fmt(spot - piSpot)}/g
+      </div>
+    </div>
+  `;
+}
+
+// ===== CHARTS =====
+let chartRevenue, chartExport, chartSalesCustomer, chartSalesMonthly, chartSpot;
+
+function initCharts() {
+  if (chartRevenue) chartRevenue.destroy();
+  if (chartExport) chartExport.destroy();
+
+  const ctx1 = document.getElementById('chart-revenue');
+  if (!ctx1) return;
+  chartRevenue = new Chart(ctx1, {
+    type: 'line',
+    data: {
+      labels: ['1월','2월','3월','4월','5월','6월'],
+      datasets: [{
+        label: '매출 (억원)',
+        data: [0.95, 1.15, 1.31, 1.44, 1.64, 1.85],
+        borderColor: '#C8A24B',
+        backgroundColor: 'rgba(200,162,75,0.1)',
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#C8A24B',
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { callback: v => v + '억' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  const ctx2 = document.getElementById('chart-export');
+  if (!ctx2) return;
+  chartExport = new Chart(ctx2, {
+    type: 'doughnut',
+    data: {
+      labels: ['일반수출', '추가가공수출'],
+      datasets: [{
+        data: [132520000, 52000000],
+        backgroundColor: ['#3d4f6f', '#C8A24B'],
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function initSalesCharts() {
+  if (chartSalesCustomer) chartSalesCustomer.destroy();
+  if (chartSalesMonthly) chartSalesMonthly.destroy();
+
+  const ctx1 = document.getElementById('chart-sales-customer');
+  if (!ctx1) return;
+  chartSalesCustomer = new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels: ['Golden Lotus', 'Tokyo Metal', 'Lucky Jewelry'],
+      datasets: [{
+        label: '6월 매출',
+        data: [78000000, 52000000, 54520000],
+        backgroundColor: ['#3d4f6f', '#677795', '#C8A24B'],
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => (v / 10000000) + '천만' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  const ctx2 = document.getElementById('chart-sales-monthly');
+  if (!ctx2) return;
+  chartSalesMonthly = new Chart(ctx2, {
+    type: 'line',
+    data: {
+      labels: ['1월','2월','3월','4월','5월','6월'],
+      datasets: [
+        { label: 'Golden Lotus', data: [52,61,58,72,68,78], borderColor: '#3d4f6f', tension: 0.3, pointRadius: 3 },
+        { label: 'Tokyo Metal', data: [28,32,35,29,41,52], borderColor: '#677795', tension: 0.3, pointRadius: 3 },
+        { label: 'Lucky Jewelry', data: [15,22,38,43,55,54.52], borderColor: '#C8A24B', tension: 0.3, pointRadius: 3 },
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } },
+      scales: {
+        y: { ticks: { callback: v => v + '백만' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+function initSpotChart() {
+  if (chartSpot) chartSpot.destroy();
+  const ctx = document.getElementById('chart-spot');
+  if (!ctx) return;
+  chartSpot = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: spotPrices.map(s => s.date.slice(5)),
+      datasets: [{
+        label: '24K 금시세',
+        data: spotPrices.map(s => s.price),
+        borderColor: '#C8A24B',
+        backgroundColor: 'rgba(200,162,75,0.15)',
+        fill: true,
+        tension: 0.3,
+        pointBackgroundColor: '#C8A24B',
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { ticks: { callback: v => (v/1000) + 'K' } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+// ===== MOBILE MENU =====
+document.getElementById('menu-toggle')?.addEventListener('click', () => {
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('-translate-x-full');
+});
+
+// ===== INIT =====
+function init() {
+  renderOrders('dashboard-orders', 5);
+  renderOrders('orders-table');
+  renderPIList();
+  renderCollections();
+  renderCIBody();
+  initCharts();
+  updateQuote();
+  const page = location.hash.slice(1) || 'dashboard';
+  navigateTo(page);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
